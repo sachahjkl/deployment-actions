@@ -10,8 +10,8 @@ on:
         default: false
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/213bed68d121220eadb6e700c296fd528b8b0b72
-  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/f53ebdb8960594841fc8aed1fc394a8a2ebc545a#default
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v1.0.0
+  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.0.0#default
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
     accept-flake-config = true
