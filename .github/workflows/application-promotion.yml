@@ -1,11 +1,20 @@
-name: Application production
+name: Application promotion
 
 on:
   workflow_call:
+    inputs:
+      source-environment:
+        description: Environment that supplies the tested image
+        required: true
+        type: string
+      target-environment:
+        description: Environment that receives the tested image
+        required: true
+        type: string
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.0.1
-  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.3.0#default
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.1.0
+  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
     accept-flake-config = true
@@ -17,16 +26,16 @@ env:
 
 jobs:
   promote:
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ inputs.target-environment }}
     permissions:
       attestations: read
       contents: read
       id-token: write
       packages: read
     concurrency:
-      group: deploy-production-${{ github.repository }}
+      group: deploy-${{ inputs.target-environment }}-${{ github.repository }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,10 +49,12 @@ jobs:
             extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
             max-jobs = 2
       - id: config
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.target-environment }}
         run: |
           nix run "$APPLICATION_CONTRACT" -- github-output >>"$GITHUB_OUTPUT"
-          nix run "$APPLICATION_CONTRACT" -- environment-output production \
-            | sed 's/^domain=/production_domain=/' >>"$GITHUB_OUTPUT"
+          nix run "$APPLICATION_CONTRACT" -- environment-output "$TARGET_ENVIRONMENT" \
+            >>"$GITHUB_OUTPUT"
       - name: Join the deployment network
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.3
         with:
@@ -75,17 +86,19 @@ jobs:
           test -n "$token" && test "$token" != null
           printf '::add-mask::%s\n' "$token"
           printf 'NOMAD_TOKEN=%s\n' "$token" >>"$GITHUB_ENV"
-      - name: Verify and promote the staging image
+      - name: Verify and promote the source image
         timeout-minutes: 15
         env:
-          DOMAIN: ${{ steps.config.outputs.production_domain }}
+          DOMAIN: ${{ steps.config.outputs.domain }}
           GH_TOKEN: ${{ github.token }}
           HEALTH_PATH: ${{ steps.config.outputs.health_path }}
           JOB_NAME: ${{ steps.config.outputs.name }}
-          NOMAD_NAMESPACE: production
+          NOMAD_NAMESPACE: ${{ inputs.target-environment }}
+          SOURCE_ENVIRONMENT: ${{ inputs.source-environment }}
+          TARGET_ENVIRONMENT: ${{ inputs.target-environment }}
           VOLUME_ENABLED: ${{ steps.config.outputs.volume_enabled }}
         run: |
-          image=$(timeout 30s nomad job inspect -namespace staging -json "$JOB_NAME" | jq -r .Meta.image)
+          image=$(timeout 30s nomad job inspect -namespace "$SOURCE_ENVIRONMENT" -json "$JOB_NAME" | jq -r .Meta.image)
           [[ "$image" =~ ^ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]{64}$ ]]
           identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml@refs/heads/master"
           timeout 2m cosign verify \
@@ -98,22 +111,22 @@ jobs:
             --type spdxjson "$image" >/dev/null 2>&1
           timeout 2m gh attestation verify "oci://$image" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
           if [ "$VOLUME_ENABLED" = true ]; then
-            volume_name="$JOB_NAME-production-data"
+            volume_name="$JOB_NAME-$TARGET_ENVIRONMENT-data"
             if ! nomad volume status -type host -json \
               | jq -e --arg name "$volume_name" 'any(.Name == $name)' >/dev/null; then
-              volume="$RUNNER_TEMP/production.volume.hcl"
-              nix run "$APPLICATION_CONTRACT" -- volume-spec production >"$volume"
+              volume="$RUNNER_TEMP/$TARGET_ENVIRONMENT.volume.hcl"
+              nix run "$APPLICATION_CONTRACT" -- volume-spec "$TARGET_ENVIRONMENT" >"$volume"
               timeout 30s nomad volume create "$volume"
             fi
           fi
-          vars="$RUNNER_TEMP/production.vars.hcl"
-          nix run "$APPLICATION_CONTRACT" -- nomad-vars production "$image" >"$vars"
+          vars="$RUNNER_TEMP/$TARGET_ENVIRONMENT.vars.hcl"
+          nix run "$APPLICATION_CONTRACT" -- nomad-vars "$TARGET_ENVIRONMENT" "$image" >"$vars"
           printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
-          pack="$RUNNER_TEMP/production-pack"
+          pack="$RUNNER_TEMP/$TARGET_ENVIRONMENT-pack"
           pack_source=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
             --var-file "$vars" --ignore-missing-vars --to-dir "$pack" --auto-approve >/dev/null
-          timeout 30s nomad job run -detach -namespace production \
+          timeout 30s nomad job run -detach -namespace "$TARGET_ENVIRONMENT" \
             "$pack/application/application.nomad"
           version=$(nomad job inspect -json "$JOB_NAME" | jq -r .Version)
           healthy=false

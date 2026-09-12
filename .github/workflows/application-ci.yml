@@ -2,10 +2,15 @@ name: Application CI
 
 on:
   workflow_call:
+    inputs:
+      deployment-environment:
+        description: Environment deployed after publication
+        required: true
+        type: string
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.0.1
-  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.3.0#default
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.1.0
+  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
@@ -37,13 +42,13 @@ jobs:
           nix run "$APPLICATION_CONTRACT" -- validate
           pack=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
           image="ghcr.io/$GITHUB_REPOSITORY@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-          for environment in staging production; do
+          while IFS= read -r environment; do
             vars="$RUNNER_TEMP/$environment.vars.hcl"
             nix run "$APPLICATION_CONTRACT" -- nomad-vars "$environment" "$image" >"$vars"
             printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
             nix run nixpkgs#nomad-pack -- render "$pack" --var-file "$vars" \
               --ignore-missing-vars --to-dir "$RUNNER_TEMP/$environment-pack" --auto-approve >/dev/null
-          done
+          done < <(nix run "$APPLICATION_CONTRACT" -- environment-names)
 
   publish:
     if: >-
@@ -117,15 +122,15 @@ jobs:
           subject-digest: ${{ steps.publish.outputs.digest }}
           push-to-registry: true
 
-  deploy-staging:
+  deploy:
     needs: publish
     runs-on: ubuntu-latest
-    environment: staging
+    environment: ${{ inputs.deployment-environment }}
     permissions:
       contents: read
       id-token: write
     concurrency:
-      group: deploy-staging-${{ github.repository }}
+      group: deploy-${{ inputs.deployment-environment }}-${{ github.repository }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -139,10 +144,12 @@ jobs:
             extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
             max-jobs = 2
       - id: config
+        env:
+          DEPLOYMENT_ENVIRONMENT: ${{ inputs.deployment-environment }}
         run: |
           nix run "$APPLICATION_CONTRACT" -- github-output >>"$GITHUB_OUTPUT"
-          nix run "$APPLICATION_CONTRACT" -- environment-output staging \
-            | sed 's/^domain=/staging_domain=/' >>"$GITHUB_OUTPUT"
+          nix run "$APPLICATION_CONTRACT" -- environment-output "$DEPLOYMENT_ENVIRONMENT" \
+            >>"$GITHUB_OUTPUT"
       - name: Join the deployment network
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.3
         with:
@@ -172,28 +179,30 @@ jobs:
           test -n "$token" && test "$token" != null
           printf '::add-mask::%s\n' "$token"
           printf 'NOMAD_TOKEN=%s\n' "$token" >>"$GITHUB_ENV"
-      - name: Deploy exact image to staging
+      - name: Deploy exact image
         timeout-minutes: 8
         env:
-          DOMAIN: ${{ steps.config.outputs.staging_domain }}
+          DEPLOYMENT_ENVIRONMENT: ${{ inputs.deployment-environment }}
+          DOMAIN: ${{ steps.config.outputs.domain }}
           IMAGE: ${{ needs.publish.outputs.image }}
           JOB_NAME: ${{ steps.config.outputs.name }}
-          NOMAD_NAMESPACE: staging
+          NO_INDEX: ${{ steps.config.outputs.no_index }}
+          NOMAD_NAMESPACE: ${{ inputs.deployment-environment }}
           VOLUME_ENABLED: ${{ steps.config.outputs.volume_enabled }}
         run: |
           if [ "$VOLUME_ENABLED" = true ]; then
-            volume_name="$JOB_NAME-staging-data"
+            volume_name="$JOB_NAME-$DEPLOYMENT_ENVIRONMENT-data"
             if ! nomad volume status -type host -json \
               | jq -e --arg name "$volume_name" 'any(.Name == $name)' >/dev/null; then
-              volume="$RUNNER_TEMP/staging.volume.hcl"
-              nix run "$APPLICATION_CONTRACT" -- volume-spec staging >"$volume"
+              volume="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT.volume.hcl"
+              nix run "$APPLICATION_CONTRACT" -- volume-spec "$DEPLOYMENT_ENVIRONMENT" >"$volume"
               timeout 30s nomad volume create "$volume"
             fi
           fi
-          vars="$RUNNER_TEMP/staging.vars.hcl"
-          nix run "$APPLICATION_CONTRACT" -- nomad-vars staging "$IMAGE" >"$vars"
+          vars="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT.vars.hcl"
+          nix run "$APPLICATION_CONTRACT" -- nomad-vars "$DEPLOYMENT_ENVIRONMENT" "$IMAGE" >"$vars"
           printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
-          pack="$RUNNER_TEMP/staging-pack"
+          pack="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT-pack"
           pack_source=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
             --var-file "$vars" --ignore-missing-vars --to-dir "$pack" --auto-approve >/dev/null
@@ -213,15 +222,17 @@ jobs:
           test "$(nomad job inspect -json "$JOB_NAME" | jq -r .Meta.image)" = "$IMAGE"
           route_ready=false
           for _attempt in $(seq 1 90); do
-            headers="$RUNNER_TEMP/staging.headers"
+            headers="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT.headers"
             if status=$(curl --silent --show-error --dump-header "$headers" \
               --output /dev/null --write-out '%{http_code}' \
               "https://$DOMAIN${{ steps.config.outputs.health_path }}") \
-              && [ "$status" = 200 ] \
-              && tr -d '\r' <"$headers" \
-                | grep --ignore-case --quiet '^x-robots-tag: noindex, nofollow$'; then
-              route_ready=true
-              break
+              && [ "$status" = 200 ]; then
+              if [ "$NO_INDEX" != true ] \
+                || tr -d '\r' <"$headers" \
+                  | grep --ignore-case --quiet '^x-robots-tag: noindex, nofollow$'; then
+                route_ready=true
+                break
+              fi
             fi
             sleep 2
           done
