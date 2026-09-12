@@ -163,7 +163,7 @@ jq -cn --arg name "$repository" --argjson private "$private" \
 checkout="$(mktemp -d)"
 trap 'rm -rf "$checkout"' EXIT
 nix flake new \
-  -t github:sachahjkl/application-template/v1.2.0 \
+  -t github:sachahjkl/application-template/v1.2.1 \
   "$checkout"
 
 cat >"$checkout/.github/workflows/ci.yml" <<EOF
