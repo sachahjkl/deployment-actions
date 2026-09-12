@@ -1,5 +1,5 @@
 {
-  description = "Reusable GitHub workflows for homelab applications";
+  description = "Reusable GitHub workflows for applications";
 
   inputs = {
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.2605";

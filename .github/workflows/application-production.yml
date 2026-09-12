@@ -11,7 +11,7 @@ on:
 
 env:
   APPLICATION_CONTRACT: github:sachahjkl/application-contract/213bed68d121220eadb6e700c296fd528b8b0b72
-  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/2ebfced8e493eabeaa0ad0981cabcb94a9545ec9#default
+  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/f53ebdb8960594841fc8aed1fc394a8a2ebc545a#default
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
     accept-flake-config = true
@@ -120,7 +120,7 @@ jobs:
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
             --var-file "$vars" --to-dir "$pack" --auto-approve >/dev/null
           timeout 30s nomad job run -detach -namespace production \
-            "$pack/homelab-application/application.nomad"
+            "$pack/application/application.nomad"
           version=$(nomad job inspect -json "$JOB_NAME" | jq -r .Version)
           healthy=false
           for _attempt in $(seq 1 90); do

@@ -11,7 +11,7 @@ on:
 
 env:
   APPLICATION_CONTRACT: github:sachahjkl/application-contract/213bed68d121220eadb6e700c296fd528b8b0b72
-  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/2ebfced8e493eabeaa0ad0981cabcb94a9545ec9#default
+  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/f53ebdb8960594841fc8aed1fc394a8a2ebc545a#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
@@ -59,7 +59,7 @@ jobs:
     if: >-
       github.event_name == 'push' &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
-      github.repository != 'sachahjkl/homelab-application-template'
+      github.repository != 'sachahjkl/application-template'
     needs: check
     runs-on: ubuntu-latest
     permissions:
@@ -207,7 +207,7 @@ jobs:
           fi
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
             --var-file "$vars" --to-dir "$pack" --auto-approve >/dev/null
-          timeout 30s nomad job run -detach "$pack/homelab-application/application.nomad"
+          timeout 30s nomad job run -detach "$pack/application/application.nomad"
           version=$(nomad job inspect -json "$JOB_NAME" | jq -r .Version)
           healthy=false
           for _attempt in $(seq 1 90); do
