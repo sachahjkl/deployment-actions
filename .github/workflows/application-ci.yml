@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.0.0
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.0.1
   NOMAD_PACK: github:sachahjkl/nomad-pack/v1.3.0#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
