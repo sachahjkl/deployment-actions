@@ -11,6 +11,10 @@ on:
         description: Environment that receives the tested image
         required: true
         type: string
+      publishing-workflow-version:
+        description: Immutable deployment-actions version that published the image
+        required: true
+        type: string
 
 env:
   NOMAD_ADDR: http://homelab.panthera-python.ts.net:4646
@@ -40,6 +44,7 @@ jobs:
         env:
           APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.1.0
           GH_TOKEN: ${{ github.token }}
+          PUBLISHING_WORKFLOW_VERSION: ${{ inputs.publishing-workflow-version }}
           SOURCE_ENVIRONMENT: ${{ inputs.source-environment }}
         run: |
           job_name=$(nix run "$APPLICATION_CONTRACT" -- github-output \
@@ -47,7 +52,8 @@ jobs:
           image=$(timeout 30s nomad job inspect \
             -namespace "$SOURCE_ENVIRONMENT" -json "$job_name" | jq -r .Meta.image)
           [[ "$image" =~ ^ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]{64}$ ]]
-          identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml@refs/heads/$GITHUB_REF_NAME"
+          [[ "$PUBLISHING_WORKFLOW_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          identity="https://github.com/sachahjkl/deployment-actions/.github/workflows/application-ci.yml@refs/tags/$PUBLISHING_WORKFLOW_VERSION"
           timeout 2m cosign verify \
             --certificate-identity "$identity" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
