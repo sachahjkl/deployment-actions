@@ -18,6 +18,7 @@ runs:
         APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.1.0
         DEPLOYMENT_ENVIRONMENT: ${{ inputs.environment }}
         IMAGE: ${{ inputs.image }}
+        NOMAD_NAMESPACE: ${{ inputs.environment }}
         NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
       run: |
         config=$(nix run "$APPLICATION_CONTRACT" -- github-output)
