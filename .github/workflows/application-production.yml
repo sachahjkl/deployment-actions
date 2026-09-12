@@ -10,8 +10,8 @@ on:
         default: false
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v1.0.0
-  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.0.0#default
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v1.1.0
+  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.1.0#default
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
     accept-flake-config = true
@@ -112,13 +112,14 @@ jobs:
           fi
           vars="$RUNNER_TEMP/production.vars.hcl"
           nix run "$APPLICATION_CONTRACT" -- nomad-vars production "$image" >"$vars"
+          printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
           pack="$RUNNER_TEMP/production-pack"
           pack_source=$(nix build "$GENERIC_NOMAD_PACK" --no-link --print-out-paths)
           if [ "$LOCAL_PACK" = true ]; then
             pack_source=deploy
           fi
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
-            --var-file "$vars" --to-dir "$pack" --auto-approve >/dev/null
+            --var-file "$vars" --ignore-missing-vars --to-dir "$pack" --auto-approve >/dev/null
           timeout 30s nomad job run -detach -namespace production \
             "$pack/application/application.nomad"
           version=$(nomad job inspect -json "$JOB_NAME" | jq -r .Version)

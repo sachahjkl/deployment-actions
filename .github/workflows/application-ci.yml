@@ -10,8 +10,8 @@ on:
         default: false
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v1.0.0
-  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.0.0#default
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v1.1.0
+  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.1.0#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
@@ -43,6 +43,14 @@ jobs:
           LOCAL_PACK: ${{ inputs.local-pack }}
         run: |
           nix run "$APPLICATION_CONTRACT" -- validate
+          config=$(nix run "$APPLICATION_CONTRACT" -- github-output)
+          for key in staging_domain production_domain; do
+            domain=$(sed -n "s/^$key=//p" <<<"$config")
+            case "$domain" in
+              sacha.house|*.sacha.house|froment.software|*.froment.software) ;;
+              *) printf 'Unauthorized domain: %s\n' "$domain" >&2; exit 1 ;;
+            esac
+          done
           pack=$(nix build "$GENERIC_NOMAD_PACK" --no-link --print-out-paths)
           if [ "$LOCAL_PACK" = true ]; then
             pack=deploy
@@ -51,8 +59,9 @@ jobs:
           for environment in staging production; do
             vars="$RUNNER_TEMP/$environment.vars.hcl"
             nix run "$APPLICATION_CONTRACT" -- nomad-vars "$environment" "$image" >"$vars"
+            printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
             nix run nixpkgs#nomad-pack -- render "$pack" --var-file "$vars" \
-              --to-dir "$RUNNER_TEMP/$environment-pack" --auto-approve >/dev/null
+              --ignore-missing-vars --to-dir "$RUNNER_TEMP/$environment-pack" --auto-approve >/dev/null
           done
 
   publish:
@@ -200,13 +209,14 @@ jobs:
           fi
           vars="$RUNNER_TEMP/staging.vars.hcl"
           nix run "$APPLICATION_CONTRACT" -- nomad-vars staging "$IMAGE" >"$vars"
+          printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
           pack="$RUNNER_TEMP/staging-pack"
           pack_source=$(nix build "$GENERIC_NOMAD_PACK" --no-link --print-out-paths)
           if [ "$LOCAL_PACK" = true ]; then
             pack_source=deploy
           fi
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
-            --var-file "$vars" --to-dir "$pack" --auto-approve >/dev/null
+            --var-file "$vars" --ignore-missing-vars --to-dir "$pack" --auto-approve >/dev/null
           timeout 30s nomad job run -detach "$pack/application/application.nomad"
           version=$(nomad job inspect -json "$JOB_NAME" | jq -r .Version)
           healthy=false
