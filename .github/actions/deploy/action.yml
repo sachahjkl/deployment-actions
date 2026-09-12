@@ -1,0 +1,89 @@
+name: Deploy application
+description: Render, deploy, and verify an application environment
+
+inputs:
+  environment:
+    description: Target application environment
+    required: true
+  image:
+    description: Immutable application image
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy exact image
+      shell: bash
+      env:
+        APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.1.0
+        DEPLOYMENT_ENVIRONMENT: ${{ inputs.environment }}
+        IMAGE: ${{ inputs.image }}
+        NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
+      run: |
+        config=$(nix run "$APPLICATION_CONTRACT" -- github-output)
+        environment_config=$(nix run "$APPLICATION_CONTRACT" -- \
+          environment-output "$DEPLOYMENT_ENVIRONMENT")
+        value() {
+          sed -n "s/^$1=//p"
+        }
+        domain=$(value domain <<<"$environment_config")
+        health_path=$(value health_path <<<"$config")
+        job_name=$(value name <<<"$config")
+        no_index=$(value no_index <<<"$environment_config")
+        volume_enabled=$(value volume_enabled <<<"$config")
+
+        if [ "$volume_enabled" = true ]; then
+          volume_name="$job_name-$DEPLOYMENT_ENVIRONMENT-data"
+          if ! nomad volume status -type host -json \
+            | jq -e --arg name "$volume_name" 'any(.Name == $name)' >/dev/null; then
+            volume="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT.volume.hcl"
+            nix run "$APPLICATION_CONTRACT" -- volume-spec "$DEPLOYMENT_ENVIRONMENT" >"$volume"
+            timeout 30s nomad volume create "$volume"
+          fi
+        fi
+
+        vars="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT.vars.hcl"
+        nix run "$APPLICATION_CONTRACT" -- \
+          nomad-vars "$DEPLOYMENT_ENVIRONMENT" "$IMAGE" >"$vars"
+        printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
+        pack="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT-pack"
+        pack_source=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
+        nix run nixpkgs#nomad-pack -- render "$pack_source" \
+          --var-file "$vars" --ignore-missing-vars --to-dir "$pack" --auto-approve >/dev/null
+        timeout 30s nomad job run -detach -namespace "$DEPLOYMENT_ENVIRONMENT" \
+          "$pack/application/application.nomad"
+
+        version=$(nomad job inspect -namespace "$DEPLOYMENT_ENVIRONMENT" \
+          -json "$job_name" | jq -r .Version)
+        healthy=false
+        for _attempt in $(seq 1 90); do
+          if nomad job status -namespace "$DEPLOYMENT_ENVIRONMENT" -json "$job_name" \
+            | jq -e --argjson version "$version" \
+              '.[0].Allocations | any(.JobVersion == $version and .ClientStatus == "running" and .DeploymentStatus.Healthy == true)' \
+              >/dev/null; then
+            healthy=true
+            break
+          fi
+          sleep 2
+        done
+        test "$healthy" = true
+        deployed_image=$(nomad job inspect -namespace "$DEPLOYMENT_ENVIRONMENT" \
+          -json "$job_name" | jq -r .Meta.image)
+        test "$deployed_image" = "$IMAGE"
+
+        route_ready=false
+        for _attempt in $(seq 1 90); do
+          headers="$RUNNER_TEMP/$DEPLOYMENT_ENVIRONMENT.headers"
+          if status=$(curl --silent --show-error --dump-header "$headers" \
+            --output /dev/null --write-out '%{http_code}' \
+            "https://$domain$health_path") && [ "$status" = 200 ]; then
+            if [ "$no_index" != true ] \
+              || tr -d '\r' <"$headers" \
+                | grep --ignore-case --quiet '^x-robots-tag: noindex, nofollow$'; then
+              route_ready=true
+              break
+            fi
+          fi
+          sleep 2
+        done
+        test "$route_ready" = true

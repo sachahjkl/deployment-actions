@@ -1,0 +1,13 @@
+name: Set up Nix
+description: Install Nix with the application cache configuration
+
+runs:
+  using: composite
+  steps:
+    - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          extra-substituters = https://nix-community.cachix.org
+          extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+          max-jobs = 2
