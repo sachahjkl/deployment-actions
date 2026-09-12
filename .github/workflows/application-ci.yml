@@ -2,16 +2,10 @@ name: Application CI
 
 on:
   workflow_call:
-    inputs:
-      local-pack:
-        description: Use the Nomad Pack from the caller's deploy directory
-        required: false
-        type: boolean
-        default: false
 
 env:
   APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.0.0
-  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.2.0#default
+  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.3.0#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
@@ -39,14 +33,9 @@ jobs:
             max-jobs = 2
       - run: nix flake check --print-build-logs --max-jobs 2
       - name: Validate the application contract and Nomad Pack
-        env:
-          LOCAL_PACK: ${{ inputs.local-pack }}
         run: |
           nix run "$APPLICATION_CONTRACT" -- validate
-          pack=$(nix build "$GENERIC_NOMAD_PACK" --no-link --print-out-paths)
-          if [ "$LOCAL_PACK" = true ]; then
-            pack=deploy
-          fi
+          pack=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
           image="ghcr.io/$GITHUB_REPOSITORY@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
           for environment in staging production; do
             vars="$RUNNER_TEMP/$environment.vars.hcl"
@@ -189,7 +178,6 @@ jobs:
           DOMAIN: ${{ steps.config.outputs.staging_domain }}
           IMAGE: ${{ needs.publish.outputs.image }}
           JOB_NAME: ${{ steps.config.outputs.name }}
-          LOCAL_PACK: ${{ inputs.local-pack }}
           NOMAD_NAMESPACE: staging
           VOLUME_ENABLED: ${{ steps.config.outputs.volume_enabled }}
         run: |
@@ -206,10 +194,7 @@ jobs:
           nix run "$APPLICATION_CONTRACT" -- nomad-vars staging "$IMAGE" >"$vars"
           printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
           pack="$RUNNER_TEMP/staging-pack"
-          pack_source=$(nix build "$GENERIC_NOMAD_PACK" --no-link --print-out-paths)
-          if [ "$LOCAL_PACK" = true ]; then
-            pack_source=deploy
-          fi
+          pack_source=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
             --var-file "$vars" --ignore-missing-vars --to-dir "$pack" --auto-approve >/dev/null
           timeout 30s nomad job run -detach "$pack/application/application.nomad"

@@ -2,16 +2,10 @@ name: Application production
 
 on:
   workflow_call:
-    inputs:
-      local-pack:
-        description: Use the Nomad Pack from the caller's deploy directory
-        required: false
-        type: boolean
-        default: false
 
 env:
   APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.0.0
-  GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.2.0#default
+  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.3.0#default
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
     accept-flake-config = true
@@ -88,7 +82,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEALTH_PATH: ${{ steps.config.outputs.health_path }}
           JOB_NAME: ${{ steps.config.outputs.name }}
-          LOCAL_PACK: ${{ inputs.local-pack }}
           NOMAD_NAMESPACE: production
           VOLUME_ENABLED: ${{ steps.config.outputs.volume_enabled }}
         run: |
@@ -117,10 +110,7 @@ jobs:
           nix run "$APPLICATION_CONTRACT" -- nomad-vars production "$image" >"$vars"
           printf 'datacenter = "homelab"\nnode_class = "general"\n' >>"$vars"
           pack="$RUNNER_TEMP/production-pack"
-          pack_source=$(nix build "$GENERIC_NOMAD_PACK" --no-link --print-out-paths)
-          if [ "$LOCAL_PACK" = true ]; then
-            pack_source=deploy
-          fi
+          pack_source=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
           nix run nixpkgs#nomad-pack -- render "$pack_source" \
             --var-file "$vars" --ignore-missing-vars --to-dir "$pack" --auto-approve >/dev/null
           timeout 30s nomad job run -detach -namespace production \
