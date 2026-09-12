@@ -10,7 +10,7 @@ on:
         default: false
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v1.1.0
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v1.2.0
   GENERIC_NOMAD_PACK: github:sachahjkl/nomad-pack/v1.1.0#default
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
