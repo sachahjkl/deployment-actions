@@ -63,7 +63,9 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --type spdxjson "$image" >/dev/null 2>&1
           timeout 2m gh attestation verify "oci://$image" \
-            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow sachahjkl/deployment-actions/.github/workflows/application-ci.yml \
+            >/dev/null 2>&1
           printf 'value=%s\n' "$image" >>"$GITHUB_OUTPUT"
       - uses: sachahjkl/deployment-actions/.github/actions/deploy@v5.0.1
         with:
