@@ -77,7 +77,7 @@ GitHub Actions échange son identité OIDC contre un jeton Nomad valable 15 minu
 Utilisez une version sémantique immuable :
 
 ```bash
-nix run github:sachahjkl/deployment-actions/v6.0.3#applicationCreate -- \
+nix run github:sachahjkl/deployment-actions/v6.0.4#applicationCreate -- \
   --repository example \
   --application example \
   --environment preview=preview.example.test \
