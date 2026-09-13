@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: sachahjkl/deployment-actions/.github/actions/setup-deployment@v6.0.0
+      - uses: sachahjkl/deployment-actions/.github/actions/setup-deployment@6f561705d9b1e662bb7dbd0852b1f8368e3ba3b4
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - id: image
@@ -68,7 +68,7 @@ jobs:
             --signer-workflow sachahjkl/deployment-actions/.github/workflows/application-ci.yml \
             >/dev/null 2>&1
           printf 'value=%s\n' "$image" >>"$GITHUB_OUTPUT"
-      - uses: sachahjkl/deployment-actions/.github/actions/deploy@v6.0.0
+      - uses: sachahjkl/deployment-actions/.github/actions/deploy@6f561705d9b1e662bb7dbd0852b1f8368e3ba3b4
         with:
           environment: ${{ inputs.target-environment }}
           image: ${{ steps.image.outputs.value }}
