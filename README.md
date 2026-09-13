@@ -1,13 +1,21 @@
 # deployment-actions
 
-Ce dépôt fournit les workflows GitHub réutilisables et la commande de création des applications.
+Ce dépôt fournit les workflows GitHub réutilisables.
 
-Les applications appellent les workflows depuis des fichiers courts épinglés sur une version immuable.
+Il fournit aussi la commande de création des applications.
+
+Les applications utilisent des fichiers courts.
+
+Chaque fichier épingle le workflow partagé sur une version immuable.
+
+Consultez
+[`docs/application-deployment.md`](docs/application-deployment.md)
+pour la politique et l'intégration d'une application.
 
 Créez une application avec cette commande :
 
 ```bash
-nix run github:sachahjkl/deployment-actions#applicationCreate -- \
+nix run github:sachahjkl/deployment-actions/v5.0.2#applicationCreate -- \
   --repository example \
   --application example \
   --environment staging=staging.example.sacha.house \
