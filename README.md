@@ -15,7 +15,7 @@ pour la politique et l'intégration d'une application.
 Créez une application avec cette commande :
 
 ```bash
-nix run github:sachahjkl/deployment-actions/v5.0.2#applicationCreate -- \
+nix run github:sachahjkl/deployment-actions/v6.0.0#applicationCreate -- \
   --repository example \
   --application example \
   --environment staging=staging.example.sacha.house \

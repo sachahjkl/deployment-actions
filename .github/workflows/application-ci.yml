@@ -9,7 +9,7 @@ on:
         type: string
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.1.0
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.1
   NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: sachahjkl/deployment-actions/.github/actions/setup-nix@v5.0.1
+      - uses: sachahjkl/deployment-actions/.github/actions/setup-nix@v6.0.0
       - run: nix flake check --print-build-logs --max-jobs 2
       - name: Validate the application contract and Nomad Pack
         run: |
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: sachahjkl/deployment-actions/.github/actions/setup-nix@v5.0.1
+      - uses: sachahjkl/deployment-actions/.github/actions/setup-nix@v6.0.0
       - id: metadata
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -131,8 +131,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: sachahjkl/deployment-actions/.github/actions/setup-deployment@v5.0.1
-      - uses: sachahjkl/deployment-actions/.github/actions/deploy@v5.0.1
+      - uses: sachahjkl/deployment-actions/.github/actions/setup-deployment@v6.0.0
+      - uses: sachahjkl/deployment-actions/.github/actions/deploy@v6.0.0
         with:
           environment: ${{ inputs.deployment-environment }}
           image: ${{ needs.publish.outputs.image }}

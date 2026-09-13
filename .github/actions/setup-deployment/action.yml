@@ -4,7 +4,7 @@ description: Connect to the deployment network and authenticate to Nomad
 runs:
   using: composite
   steps:
-    - uses: sachahjkl/deployment-actions/.github/actions/setup-nix@v5.0.1
+    - uses: sachahjkl/deployment-actions/.github/actions/setup-nix@v6.0.0
     - name: Join the deployment network
       uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.3
       with:

@@ -38,7 +38,11 @@ La commande de création distingue trois listes :
 - les environnements qui demandent une approbation ;
 - les environnements qui interdisent l'indexation.
 
-La plateforme ne valide pas et ne limite pas les domaines.
+Le contrat accepte tout nom d'hôte DNS valide écrit en minuscules.
+
+La plateforme n'impose aucun suffixe de domaine.
+
+Le déploiement refuse un domaine déjà utilisé par une autre route Traefik.
 
 ## Publication
 
@@ -73,7 +77,7 @@ GitHub Actions échange son identité OIDC contre un jeton Nomad valable 15 minu
 Utilisez une version sémantique immuable :
 
 ```bash
-nix run github:sachahjkl/deployment-actions/v5.0.2#applicationCreate -- \
+nix run github:sachahjkl/deployment-actions/v6.0.0#applicationCreate -- \
   --repository example \
   --application example \
   --environment preview=preview.example.test \
