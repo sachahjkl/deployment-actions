@@ -34,7 +34,7 @@ runs:
         no_index=$(value no_index <<<"$environment_config")
         volume_enabled=$(value volume_enabled <<<"$config")
 
-        expected_router="$job_name-$DEPLOYMENT_ENVIRONMENT@nomad"
+        expected_router="$job_name-$DEPLOYMENT_ENVIRONMENT@nomad-$DEPLOYMENT_ENVIRONMENT"
         conflicting_routers=$(curl --fail --silent --show-error \
           "$TRAEFIK_API/http/routers" \
           | jq -r --arg domain "$domain" --arg expected "$expected_router" '
