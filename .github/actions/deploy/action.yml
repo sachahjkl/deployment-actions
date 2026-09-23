@@ -15,7 +15,7 @@ runs:
     - name: Deploy exact image
       shell: bash
       env:
-        APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.1
+        APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.2
         DEPLOYMENT_ENVIRONMENT: ${{ inputs.environment }}
         IMAGE: ${{ inputs.image }}
         NOMAD_NAMESPACE: ${{ inputs.environment }}

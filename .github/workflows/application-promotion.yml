@@ -43,7 +43,7 @@ jobs:
       - id: image
         name: Verify the source image
         env:
-          APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.1
+          APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.2
           GH_TOKEN: ${{ github.token }}
           PUBLISHING_WORKFLOW_VERSION: ${{ inputs.publishing-workflow-version }}
           SOURCE_ENVIRONMENT: ${{ inputs.source-environment }}

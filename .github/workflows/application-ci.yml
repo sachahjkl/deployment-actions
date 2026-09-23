@@ -9,7 +9,7 @@ on:
         type: string
 
 env:
-  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.1
+  APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.2
   NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
