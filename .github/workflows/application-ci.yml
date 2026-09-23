@@ -12,11 +12,16 @@ on:
         required: false
         default: .
         type: string
+      image-suffix:
+        description: Image repository suffix for another application in the same repository
+        required: false
+        default: ''
+        type: string
 
 env:
   APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.2
   NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.1#default
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  IMAGE_NAME: ghcr.io/${{ github.repository }}${{ inputs.image-suffix }}
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes
     accept-flake-config = true
