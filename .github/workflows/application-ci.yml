@@ -144,7 +144,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: sachahjkl/deployment-actions/.github/actions/setup-deployment@6f561705d9b1e662bb7dbd0852b1f8368e3ba3b4
-      - uses: sachahjkl/deployment-actions/.github/actions/deploy@f8ba91dfdde653264cfd3bdc1d61ed94c0786ee8
+      - uses: sachahjkl/deployment-actions/.github/actions/deploy@ff1ce780c9ba82a927ad461dfba9a08dd4154746
         with:
           environment: ${{ inputs.deployment-environment }}
           image: ${{ needs.publish.outputs.image }}
