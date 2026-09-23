@@ -7,6 +7,11 @@ on:
         description: Environment deployed after publication
         required: true
         type: string
+      application-directory:
+        description: Directory containing the application flake and contract
+        required: false
+        default: .
+        type: string
 
 env:
   APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.2
@@ -17,6 +22,7 @@ env:
     accept-flake-config = true
     max-jobs = 2
   NOMAD_ADDR: http://homelab.panthera-python.ts.net:4646
+  APPLICATION_DIRECTORY: ${{ inputs.application-directory }}
 
 jobs:
   check:
@@ -27,9 +33,12 @@ jobs:
         with:
           persist-credentials: false
       - uses: sachahjkl/deployment-actions/.github/actions/setup-nix@6f561705d9b1e662bb7dbd0852b1f8368e3ba3b4
-      - run: nix flake check --print-build-logs --max-jobs 2
+      - run: |
+          cd "$APPLICATION_DIRECTORY"
+          nix flake check --print-build-logs --max-jobs 2
       - name: Validate the application contract and Nomad Pack
         run: |
+          cd "$APPLICATION_DIRECTORY"
           nix run "$APPLICATION_CONTRACT" -- validate
           pack=$(nix build "$NOMAD_PACK" --no-link --print-out-paths)
           image="ghcr.io/$GITHUB_REPOSITORY@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -66,13 +75,16 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: type=sha,format=long
-      - run: nix build .#dockerImage --print-build-logs --max-jobs 2
+      - run: |
+          cd "$APPLICATION_DIRECTORY"
+          nix build .#dockerImage --print-build-logs --max-jobs 2
       - id: publish
         name: Push OCI image
         env:
           GHCR_TOKEN: ${{ github.token }}
           IMAGE_TAGS: ${{ steps.metadata.outputs.tags }}
         run: |
+          cd "$APPLICATION_DIRECTORY"
           umask 077
           authfile="$RUNNER_TEMP/skopeo-auth.json"
           trap 'rm -f "$authfile"' EXIT
@@ -136,3 +148,4 @@ jobs:
         with:
           environment: ${{ inputs.deployment-environment }}
           image: ${{ needs.publish.outputs.image }}
+          application-directory: ${{ inputs.application-directory }}
