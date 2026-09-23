@@ -10,7 +10,7 @@ on:
 
 env:
   APPLICATION_CONTRACT: github:sachahjkl/application-contract/v2.2.2
-  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
+  NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.1#default
   IMAGE_NAME: ghcr.io/${{ github.repository }}
   NIX_CONFIG: |
     extra-experimental-features = nix-command flakes

@@ -19,7 +19,7 @@ runs:
         DEPLOYMENT_ENVIRONMENT: ${{ inputs.environment }}
         IMAGE: ${{ inputs.image }}
         NOMAD_NAMESPACE: ${{ inputs.environment }}
-        NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.0#default
+        NOMAD_PACK: github:sachahjkl/nomad-pack/v1.4.1#default
         TRAEFIK_API: http://homelab.panthera-python.ts.net:8080/api
       run: |
         config=$(nix run "$APPLICATION_CONTRACT" -- github-output)
@@ -73,7 +73,7 @@ runs:
         version=$(nomad job inspect -namespace "$DEPLOYMENT_ENVIRONMENT" \
           -json "$job_name" | jq -r .Version)
         healthy=false
-        for _attempt in $(seq 1 90); do
+        for _attempt in $(seq 1 360); do
           if nomad job status -namespace "$DEPLOYMENT_ENVIRONMENT" -json "$job_name" \
             | jq -e --argjson version "$version" \
               '.[0].Allocations | any(.JobVersion == $version and .ClientStatus == "running" and .DeploymentStatus.Healthy == true)' \
