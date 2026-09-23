@@ -68,7 +68,7 @@ jobs:
             --signer-workflow sachahjkl/deployment-actions/.github/workflows/application-ci.yml \
             >/dev/null 2>&1
           printf 'value=%s\n' "$image" >>"$GITHUB_OUTPUT"
-      - uses: sachahjkl/deployment-actions/.github/actions/deploy@6f561705d9b1e662bb7dbd0852b1f8368e3ba3b4
+      - uses: sachahjkl/deployment-actions/.github/actions/deploy@66321df8da3f05341e2eba058b408f6785efe55f
         with:
           environment: ${{ inputs.target-environment }}
           image: ${{ steps.image.outputs.value }}
