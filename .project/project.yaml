@@ -1,0 +1,15 @@
+name: "Deployment Actions"
+description: "Reusable GitHub Actions and a CLI for immutable OCI deployments, Nomad promotion, and OIDC authentication."
+topics:
+  - "github-actions"
+  - "reusable-workflows"
+  - "ci-cd"
+  - "nomad"
+  - "oidc"
+  - "oci"
+  - "nix"
+homepage: ""
+source:
+  provider: github
+  namespace: "sachahjkl"
+  path: "sachahjkl/deployment-actions"
