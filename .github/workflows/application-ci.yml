@@ -122,6 +122,10 @@ jobs:
         env:
           IMAGE: ${{ steps.publish.outputs.image }}
           SBOM: ${{ runner.temp }}/application.spdx.json
+          # Private images cannot be read anonymously.
+          SYFT_REGISTRY_AUTH_AUTHORITY: ghcr.io
+          SYFT_REGISTRY_AUTH_USERNAME: ${{ github.actor }}
+          SYFT_REGISTRY_AUTH_PASSWORD: ${{ github.token }}
         run: nix run nixpkgs#syft -- "$IMAGE" --output "spdx-json=$SBOM"
       - name: Sign image and attest SBOM
         env:
