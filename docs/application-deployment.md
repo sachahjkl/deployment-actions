@@ -51,7 +51,7 @@ Le workflow continu exécute ces opérations :
 1. Il vérifie la flake et `application.yaml`.
 2. Il construit une image OCI.
 3. Il publie l'image dans GHCR.
-4. Il produit le SBOM et la provenance.
+4. Il produit le SBOM et, sauf avec `build-provenance: false`, la provenance.
 5. Il signe le condensat avec Cosign et GitHub OIDC.
 6. Il déploie le condensat dans l'environnement continu.
 7. Il vérifie le déploiement Nomad et la route HTTP.
@@ -71,6 +71,61 @@ Configurez une approbation GitHub Environment pour chaque cible concernée.
 Ne stockez pas de jeton Nomad permanent dans GitHub.
 
 GitHub Actions échange son identité OIDC contre un jeton Nomad valable 15 minutes.
+
+## Dépôt privé
+
+GitHub produit la provenance de build d'un dépôt privé uniquement avec GitHub Enterprise Cloud.
+
+Pour un autre dépôt privé, passez `build-provenance: false` aux deux workflows partagés.
+
+Le workflow continu ne publie alors pas la provenance.
+
+La promotion ne vérifie alors pas la provenance.
+
+La signature Cosign et l'attestation SBOM restent actives.
+
+Cosign enregistre la signature dans le journal public Rekor.
+
+Ce journal expose le nom du dépôt privé et le condensat de l'image.
+
+Le workflow appelant accorde ces permissions au workflow continu :
+
+- `attestations: write` ;
+- `contents: read` ;
+- `id-token: write` ;
+- `packages: write`.
+
+GitHub refuse l'appel si une permission demandée par le workflow partagé manque.
+
+Exemple pour `petitpecule/service` :
+
+```yaml
+jobs:
+  ci:
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    uses: sachahjkl/deployment-actions/.github/workflows/application-ci.yml@v6.1.0
+    with:
+      deployment-environment: production
+      build-provenance: false
+      tailscale-oauth-client-id: IDENTIFIANT_DU_CLIENT_TAILSCALE_PETITPECULE
+```
+
+## Autre propriétaire GitHub
+
+Un identifiant Tailscale de confiance accepte un seul motif de sujet GitHub.
+
+Un dépôt d'un autre propriétaire GitHub demande un identifiant Tailscale distinct.
+
+Passez cet identifiant avec `tailscale-oauth-client-id` aux deux workflows partagés.
+
+Sans cette entrée, les workflows utilisent l'identifiant de `sachahjkl`.
+
+Le propriétaire doit aussi figurer dans
+`services.nomadPlatform.githubActions.owners` de `nixconfig`.
 
 ## Création d'une application
 
@@ -96,7 +151,7 @@ Elle utilise `sachahjkl/application-template` avec une version sémantique immua
 ## Infrastructure requise
 
 Déclarez les noms d'environnement dans
-`homelab.services.nomad.namespaces` sur le cluster cible.
+`services.nomadPlatform.namespaces` sur le cluster cible.
 
 Cette liste configure la découverte Traefik.
 
